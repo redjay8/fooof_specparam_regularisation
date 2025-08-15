@@ -13,25 +13,11 @@ from collections import namedtuple
 ###################################################################################################
 ###################################################################################################
 
-class ModelModes(namedtuple('ModelModes', ['aperiodic_mode', 'periodic_mode'])):
-    """User defined fit modes for model fitting.
-
-    Parameters
-    ----------
-    aperiodic_mode : {'fixed', 'knee'}
-        Which approach to use for fitting the aperiodic component.
-    periodic_mode : {'gaussian', 'skewed_gaussian', 'cauchy'}
-        Which approach to use for fitting the periodic component.
-
-    Notes
-    -----
-    This object is a data object, based on a NamedTuple, with immutable data attributes.
-    """
-    __slots__ = ()
-
-
 class ModelSettings(namedtuple('ModelSettings', ['peak_width_limits', 'max_n_peaks',
-                                                 'min_peak_height', 'peak_threshold'])):
+                                                 'min_peak_height', 'peak_threshold',
+                                                 'aperiodic_mode',
+                                                 'regularization_weight'])):
+
     """User defined settings for the fitting algorithm.
 
     Parameters
@@ -44,6 +30,8 @@ class ModelSettings(namedtuple('ModelSettings', ['peak_width_limits', 'max_n_pea
         Absolute threshold for detecting peaks, in units of the input data.
     peak_threshold : float
         Relative threshold for detecting peaks, in units of standard deviation of the input data.
+    aperiodic_mode : {'fixed', 'knee'}
+        Which approach to take for fitting the aperiodic component.
 
     Notes
     -----
@@ -52,15 +40,17 @@ class ModelSettings(namedtuple('ModelSettings', ['peak_width_limits', 'max_n_pea
     __slots__ = ()
 
 
-class ModelChecks(namedtuple('ModelChecks', ['check_freqs', 'check_data'])):
+class ModelRunModes(namedtuple('ModelRunModes', ['debug', 'check_freqs', 'check_data'])):
     """Checks performed and errors raised by the model.
 
     Parameters
     ----------
+    debug :  bool
+       Whether to run in debug mode.
     check_freqs : bool
-        Whether to check freqs.
+        Whether to run in check freqs mode.
     check_data : bool
-        Whether to check data.
+        Whether to run in check data mode.
 
     Notes
     -----
@@ -87,7 +77,7 @@ class SpectrumMetaData(namedtuple('SpectrumMetaData', ['freq_range', 'freq_res']
 
 
 class FitResults(namedtuple('FitResults', ['aperiodic_params', 'peak_params',
-                                           'gaussian_params', 'metrics'])):
+                                           'r_squared', 'error', 'gaussian_params'])):
     """Model results from parameterizing a power spectrum.
 
     Parameters
@@ -97,11 +87,13 @@ class FitResults(namedtuple('FitResults', ['aperiodic_params', 'peak_params',
         The knee parameter is only included if aperiodic is fit with knee.
     peak_params : 2d array
         Fitted parameter values for the peaks. Each row is a peak, as [CF, PW, BW].
+    r_squared : float
+        R-squared of the fit between the full model fit and the input data.
+    error : float
+        Error of the full model fit.
     gaussian_params : 2d array
         Parameters that define the gaussian fit(s).
         Each row is a gaussian, as [mean, height, standard deviation].
-    metrics : dict
-        Metrics results.
 
     Notes
     -----

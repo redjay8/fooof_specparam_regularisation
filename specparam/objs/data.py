@@ -5,10 +5,10 @@ from functools import wraps
 import numpy as np
 
 from specparam.sim.gen import gen_freqs
-from specparam.data import SpectrumMetaData, ModelChecks
 from specparam.utils.spectral import trim_spectrum
-from specparam.utils.checks import check_input_options
+from specparam.core.items import OBJ_DESC
 from specparam.modutils.errors import DataError, InconsistentDataError
+from specparam.data import SpectrumMetaData
 from specparam.plts.settings import PLT_COLORS
 from specparam.plts.spectra import plot_spectra, plot_spectrogram
 from specparam.plts.utils import check_plot_kwargs
@@ -16,58 +16,33 @@ from specparam.plts.utils import check_plot_kwargs
 ###################################################################################################
 ###################################################################################################
 
-# Define set of data fields
-DATA_FIELDS = ['power_spectrum', 'freq_range', 'freq_res']
-META_DATA_FIELDS = ['freq_range', 'freq_res']
-FORMATS = ['power']
-
-
-class Data():
-    """Object for managing data for spectral parameterization - for 1D data.
+class BaseData():
+    """Base object for managing data for spectral parameterization - for 1D data.
 
     Parameters
     ----------
-    check_freqs : bool
-        Whether to check the frequency values.
+    _check_freqs : bool
+        Run mode: whether to check the frequency values.
         If True, checks the frequency values, and raises an error for uneven spacing.
-    check_data : bool
-        Whether to check the power spectrum values.
+    _check_data : bool
+        Run mode: whether to check the power spectrum values.
         If True, checks the power values and raises an error for any NaN / Inf values.
-    format : {'power'}
-        The representation format of the data.
-
-    Attributes
-    ----------
-    freqs : 1d array
-        Frequency values for the power spectrum.
-    power_spectrum : 1d array
-        Power values, stored internally in log10 scale.
-    freq_range : list of [float, float]
-        Frequency range of the power spectrum, as [lowest_freq, highest_freq].
-    freq_res : float
-        Frequency resolution of the power spectrum.
     """
 
-    def __init__(self, check_freqs=True, check_data=True, format='power'):
-        """Initialize Data object."""
+    def __init__(self, check_freqs_mode=True, check_data_mode=True):
 
         self._reset_data(True, True)
-        self._fields = DATA_FIELDS
-        self._meta_fields = META_DATA_FIELDS
 
-        # Define data check run statuses
-        self._check_freqs = check_freqs
-        self._check_data = check_data
-
-        check_input_options(format, FORMATS, 'format')
-        self.format = format
+        # Define data check run modes
+        self._check_freqs = check_freqs_mode
+        self._check_data = check_data_mode
 
 
     @property
     def has_data(self):
         """Indicator for if the object contains data."""
 
-        return bool(np.any(self.power_spectrum))
+        return True if np.any(self.power_spectrum) else False
 
 
     def add_data(self, freqs, power_spectrum, freq_range=None):
@@ -105,22 +80,10 @@ class Data():
             A meta data object containing meta data information.
         """
 
-        for meta_dat in self._meta_fields:
+        for meta_dat in OBJ_DESC['meta_data']:
             setattr(self, meta_dat, getattr(meta_data, meta_dat))
 
         self._regenerate_freqs()
-
-
-    def get_checks(self):
-        """Return check statuses of the current object.
-
-        Returns
-        -------
-        ModelChecks
-            Object containing the check statuses from the current object.
-        """
-
-        return ModelChecks(**{key : getattr(self, '_' + key) for key in ModelChecks._fields})
 
 
     def get_meta_data(self):
@@ -132,7 +95,8 @@ class Data():
             Object containing meta data from the current object.
         """
 
-        return SpectrumMetaData(**{key : getattr(self, key) for key in self._meta_fields})
+        return SpectrumMetaData(**{key : getattr(self, key) \
+            for key in OBJ_DESC['meta_data']})
 
 
     def plot(self, plt_log=False, **plt_kwargs):
@@ -144,15 +108,15 @@ class Data():
                      log_powers=False, **data_kwargs)
 
 
-    def set_checks(self, check_freqs=None, check_data=None):
-        """Set check statuses, which control if an error is raised based on check on the inputs.
+    def set_check_modes(self, check_freqs=None, check_data=None):
+        """Set check modes, which controls if an error is raised based on check on the inputs.
 
         Parameters
         ----------
         check_freqs : bool, optional
-            Whether to check the frequency data.
+            Whether to run in check freqs mode, which checks the frequency data.
         check_data : bool, optional
-            Whether to check the power spectrum data.
+            Whether to run in check data mode, which checks the power spectrum values data.
         """
 
         if check_freqs is not None:
@@ -268,7 +232,7 @@ class Data():
         # Log power values
         powers = np.log10(powers)
 
-        ## Data checks - run checks on inputs based on check statuses
+        ## Data checks - run checks on inputs based on check modes
 
         if self._check_freqs:
             # Check if the frequency data is unevenly spaced, and raise an error if so
@@ -288,26 +252,12 @@ class Data():
         return freqs, powers, freq_range, freq_res
 
 
-class Data2D(Data):
-    """Base object for managing data for spectral parameterization - for 2D data.
-
-    Attributes
-    ----------
-    freqs : 1d array
-        Frequency values for the power spectra.
-    power_spectra : 2d array
-        Power values for the group of power spectra, as [n_power_spectra, n_freqs].
-        Power values are stored internally in log10 scale.
-    freq_range : list of [float, float]
-        Frequency range of the power spectra, as [lowest_freq, highest_freq].
-    freq_res : float
-        Frequency resolution of the power spectra.
-    """
+class BaseData2D(BaseData):
+    """Base object for managing data for spectral parameterization - for 2D data."""
 
     def __init__(self):
-        """Initialize Data2D object."""
 
-        Data.__init__(self)
+        BaseData.__init__(self)
 
         self.power_spectra = None
 
@@ -316,7 +266,7 @@ class Data2D(Data):
     def has_data(self):
         """Indicator for if the object contains data."""
 
-        return bool(np.any(self.power_spectra))
+        return True if np.any(self.power_spectra) else False
 
 
     def add_data(self, freqs, power_spectra, freq_range=None):
@@ -385,26 +335,12 @@ def transpose_arg1(func):
     return decorated
 
 
-class Data2DT(Data2D):
-    """Base object for managing data for spectral parameterization - for 2D transposed data.
-
-    Attributes
-    ----------
-    freqs : 1d array
-        Frequency values for the spectrogram.
-    spectrogram : 2d array
-        Power values for the spectrogram, as [n_freqs, n_time_windows].
-        Power values are stored internally in log10 scale.
-    freq_range : list of [float, float]
-        Frequency range of the spectrogram, as [lowest_freq, highest_freq].
-    freq_res : float
-        Frequency resolution of the spectrogram.
-    """
+class BaseData2DT(BaseData2D):
+    """Base object for managing data for spectral parameterization - for 2D transposed data."""
 
     def __init__(self):
-        """Initialize Data2DT object."""
 
-        Data2D.__init__(self)
+        BaseData2D.__init__(self)
 
 
     @property
@@ -451,26 +387,12 @@ class Data2DT(Data2D):
         plot_spectrogram(self.freqs, self.spectrogram, **plot_kwargs)
 
 
-class Data3D(Data2DT):
-    """Base object for managing data for spectral parameterization - for 3D data.
-
-    Attributes
-    ----------
-    freqs : 1d array
-        Frequency values for the power spectra.
-    spectrograms : 3d array
-        Power values for the spectrograms, organized as [n_events, n_freqs, n_time_windows].
-        Power values are stored internally in log10 scale.
-    freq_range : list of [float, float]
-        Frequency range of the power spectra, as [lowest_freq, highest_freq].
-    freq_res : float
-        Frequency resolution of the power spectra.
-    """
+class BaseData3D(BaseData2DT):
+    """Base object for managing data for spectral parameterization - for 3D data."""
 
     def __init__(self):
-        """Initialize Data3D object."""
 
-        Data2DT.__init__(self)
+        BaseData2DT.__init__(self)
 
         self.spectrograms = None
 

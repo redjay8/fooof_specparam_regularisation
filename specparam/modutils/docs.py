@@ -32,10 +32,9 @@ def get_docs_indices(docstring, sections=DOCSTRING_SECTIONS):
 
     inds = {label : None for label in sections}
 
-    docstring_lst = docstring.split('\n')
-    for ind, line in enumerate(docstring_lst[:-1]):
+    for ind, line in enumerate(docstring.split('\n')):
         for key in inds:
-            if key in line and '--' in docstring_lst[ind + 1]:
+            if key in line:
                 inds[key] = ind
 
     return inds

@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from specparam.core.items import PEAK_INDS
+
 ###################################################################################################
 ###################################################################################################
 
@@ -42,7 +44,7 @@ def get_band_peak(model, band, select_highest=True, threshold=None,
     >>> betas = get_band_peak(model, [13, 30], select_highest=False)  # doctest:+SKIP
     """
 
-    return get_band_peak_arr(getattr(model.results, attribute + '_'), band,
+    return get_band_peak_arr(getattr(model, attribute + '_'), band,
                              select_highest, threshold, thresh_param)
 
 
@@ -95,7 +97,7 @@ def get_band_peak_group(group, band, threshold=None, thresh_param='PW', attribut
     >>> betas = get_band_peak_group(group, [13, 30], threshold=0.1)  # doctest:+SKIP
     """
 
-    return get_band_peak_group_arr(group.results.get_params(attribute), band, len(group.results),
+    return get_band_peak_group_arr(group.get_params(attribute), band, len(group),
                                    threshold, thresh_param)
 
 
@@ -125,8 +127,8 @@ def get_band_peak_event(event, band, threshold=None, thresh_param='PW', attribut
         Array of peak data, organized as [n_events, n_time_windows, n_peak_params].
     """
 
-    peaks = np.zeros([event.data.n_events, event.data.n_time_windows, 3])
-    for ind in range(event.data.n_events):
+    peaks = np.zeros([event.n_events, event.n_time_windows, 3])
+    for ind in range(event.n_events):
         peaks[ind, :, :] = get_band_peak_group(\
             event.get_group(ind, None, 'group'), band, threshold, thresh_param, attribute)
 
@@ -283,8 +285,7 @@ def threshold_peaks(peak_params, threshold, param='PW'):
         return np.array([np.nan, np.nan, np.nan])
 
     # Otherwise, apply a mask to apply the requested threshold
-    #   TEMP: interim hardcode for parameter index while updating for modes
-    thresh_mask = peak_params[:, {'PW' : 1, 'BW' : 2}[param]] > threshold
+    thresh_mask = peak_params[:, PEAK_INDS[param]] > threshold
     thresholded_peaks = peak_params[thresh_mask]
 
     return thresholded_peaks
